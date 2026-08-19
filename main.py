@@ -188,8 +188,8 @@ async def generate_image(aff_text: str) -> str:
 
 async def post_to_vk(aff: dict):
     """
-    Загружает фото и публикует пост напрямую через API VK.
-    Работает ТОЛЬКО с токеном сообщества.
+    Исправленная версия: используем photos.getUploadServer вместо getWallUploadServer.
+    Это решает проблему 'method is unavailable with group auth' при наличии прав.
     """
     photo_path = await generate_image(aff["text"])
     caption = (
@@ -200,9 +200,10 @@ async def post_to_vk(aff: dict):
     # ID группы без минуса нужен для методов загрузки фото
     group_id_clean = str(abs(VK_OWNER_ID))
     
-    logger.info("📤 Получаем URL для загрузки фото...")
+    logger.info("📤 Получаем URL для загрузки фото (исправленный метод)...")
+    # ИСПРАВЛЕНИЕ ЗДЕСЬ: используем getUploadServer вместо getWallUploadServer
     upload_server_resp = requests.post(
-        "https://api.vk.com/method/photos.getWallUploadServer",
+        "https://api.vk.com/method/photos.getUploadServer",
         params={
             "group_id": group_id_clean,
             "access_token": VK_TOKEN,
@@ -226,6 +227,7 @@ async def post_to_vk(aff: dict):
         raise Exception(f"Ошибка загрузки файла: {err}")
 
     logger.info("💾 Сохраняем фото в группе...")
+    # Для getUploadServer используем photos.saveWallPhoto
     save_resp = requests.post(
         "https://api.vk.com/method/photos.saveWallPhoto",
         data={
@@ -242,7 +244,8 @@ async def post_to_vk(aff: dict):
         err = save_resp.get("error", {}).get("error_msg", "Неизвестная ошибка")
         raise Exception(f"Ошибка сохранения фото: {err}")
 
-    photo_data = save_resp["response"][0]
+    photo_data = save_resp["response"]
+    # Формируем attachment: photo{owner_id}_{id}
     attachment = f"photo{photo_data['owner_id']}_{photo_data['id']}"
 
     logger.info("📢 Публикуем пост...")
@@ -250,7 +253,7 @@ async def post_to_vk(aff: dict):
         "https://api.vk.com/method/wall.post",
         data={
             "owner_id": VK_OWNER_ID,       # ID группы с минусом
-            "from_group": 1,              # Пост от имени группы (ОБЯЗАТЕЛЬНО)
+            "from_group": 1,              # Пост от имени группы
             "message": caption,
             "attachments": attachment,
             "access_token": VK_TOKEN,
