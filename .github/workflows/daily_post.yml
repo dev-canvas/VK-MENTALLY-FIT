@@ -1,0 +1,57 @@
+name: Hourly Affirmation Post to VK (Optimized)
+
+on:
+  # АВТОМАТИЧЕСКИЙ ЗАПУСК
+  schedule:
+    # ВАЖНО: Сейчас стоит запуск РАЗ В 3 ЧАСА (00:00, 03:00, 06:00...)
+    # Это экономит лимит минут GitHub Actions и убирает часть ночных постов.
+    - cron: "0 */3 * * *"
+    
+    # Если ты ОЧЕНЬ хочешь КАЖДЫЙ ЧАС, раскомментируй строку ниже 
+    # и закомментируй строку выше:
+    # - cron: "0 * * * *"
+  
+  # РУЧНОЙ ЗАПУСК (ТЕСТ)
+  workflow_dispatch:
+
+jobs:
+  post-affirmation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Обязательно для git push
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the bot script
+        env:
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+          VK_OWNER_ID: ${{ secrets.VK_OWNER_ID }}
+        run: python main.py
+
+      - name: Commit and Push updated files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions"
+          
+          # Добавляем только обновленные файлы
+          git add data/affirmations.db
+          git add logs/run.log
+          
+          # Проверяем, есть ли реальные изменения
+          if git diff --staged --quiet; then
+            echo "No changes to commit (DB and logs are same)"
+          else
+            git commit -m "Update DB and logs: scheduled run"
+            git push
+            echo "✅ Database and logs updated successfully!"
+          fi
