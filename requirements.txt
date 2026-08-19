@@ -1,0 +1,4 @@
+aiosqlite
+pillow
+vk_api
+pytz
