@@ -1,4 +1,4 @@
 aiosqlite
-pillow
-vk_api
+Pillow
 pytz
+requests
